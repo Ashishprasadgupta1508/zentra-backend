@@ -7,6 +7,12 @@ from firebase_admin import auth
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
+from .views import (
+    VerifyUserView,
+    LoginView,
+    ProfileView,
+    SignupView,
+)
 
 class ProfileView(APIView):
 
@@ -140,3 +146,30 @@ class LoginView(APIView):
                 },
                 status=401
             )
+        
+class SignupView(APIView):
+
+    def post(self, request):
+
+        token = request.data.get("token")
+
+        decoded = auth.verify_id_token(token)
+
+        uid = decoded["uid"]
+
+        email = decoded.get("email")
+
+        name = decoded.get("name", "")
+
+        user, created = User.objects.get_or_create(
+            uid=uid,
+            defaults={
+                "email": email,
+                "name": name
+            }
+        )
+
+        return Response({
+            "success": True,
+            "new_user": created
+        })
