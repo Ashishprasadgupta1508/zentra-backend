@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "1192.168.100.114",
+    "zentra-backend-production-c42c.up.railway.app",
 ]
 
 
