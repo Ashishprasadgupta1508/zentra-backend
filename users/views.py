@@ -9,6 +9,9 @@ from firebase_admin import auth
 from .models import User
 
 
+
+
+
 class VerifyUserView(APIView):
 
     def post(self, request):
@@ -72,3 +75,14 @@ class SignupView(APIView):
                 {"error": str(e)},
                 status=status.HTTP_401_UNAUTHORIZED
             )
+class SendVerificationEmailView(APIView):
+
+    def post(self, request):
+
+        email = request.data.get("email")
+
+        link = auth.generate_email_verification_link(email)
+
+        return Response({
+            "verification_link": link
+        })
