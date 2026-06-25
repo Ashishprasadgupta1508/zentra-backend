@@ -1,14 +1,14 @@
 import firebase_admin
 from firebase_admin import credentials
-from firebase_admin import storage
+import os
 
-cred = credentials.Certificate(
-    "firebase-service-account.json"
-)
+if not firebase_admin._apps:
 
-firebase_admin.initialize_app(
-    cred,
-    {
-        "storageBucket": "zentra-8a600.firebasestorage.app"
-    }
-)
+    cred = credentials.Certificate(
+        os.path.join(
+            os.path.dirname(__file__),
+            "firebase-service-account.json"
+        )
+    )
+
+    firebase_admin.initialize_app(cred)
