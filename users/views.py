@@ -7,12 +7,8 @@ from firebase_admin import auth
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
-from .views import (
-    VerifyUserView,
-    LoginView,
-    ProfileView,
-    SignupView,
-)
+
+
 
 class ProfileView(APIView):
 
