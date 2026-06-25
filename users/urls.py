@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import VerifyUserView
+from .views import ProfileView, VerifyUserView
 from .views import LoginView
 
 urlpatterns = [
