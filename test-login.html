@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Zentra Login</title>
+</head>
+
+<body>
+
+    <button onclick="googleLogin()">
+        Login With Google
+    </button>
+
+    <script type="module">
+
+        import { initializeApp }
+            from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+
+        import {
+            getAuth,
+            GoogleAuthProvider,
+            signInWithPopup
+        }
+            from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDparLYEjKeU6e_2AsIvhwudzy9NGDLYx8",
+            authDomain: "zentra-8a600.firebaseapp.com",
+            projectId: "zentra-8a600",
+            storageBucket: "zentra-8a600.firebasestorage.app",
+            messagingSenderId: "716087370710",
+            appId: "1:716087370710:web"
+        };
+
+        const app = initializeApp(firebaseConfig);
+
+        const auth = getAuth(app);
+
+        window.googleLogin = async () => {
+
+            const provider =
+                new GoogleAuthProvider();
+
+            const result =
+                await signInWithPopup(
+                    auth,
+                    provider
+                );
+
+            const token =
+                await result.user.getIdToken();
+
+            console.log(token);
+
+            const response = await fetch(
+                "http://127.0.0.1:8000/api/auth/verify-user/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        token
+                    })
+                }
+            );
+
+            const data =
+                await response.json();
+
+            console.log(data);
+        };
+    </script>
+
+</body>
+
+</html>
