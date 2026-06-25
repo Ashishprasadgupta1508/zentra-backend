@@ -3,12 +3,7 @@ from django.urls import path
 from users import SignupView
 from .views import ProfileView, VerifyUserView
 from .views import LoginView
-from .views import (
-    SignupView,
-    LoginView,
-    VerifyUserView,
-    ProfileView,
-)
+
 
 urlpatterns = [
     path(
@@ -26,5 +21,5 @@ urlpatterns = [
     ProfileView.as_view(),
     name="profile"
 ),
-path("signup/", SignupView.as_view())
+
 ]
