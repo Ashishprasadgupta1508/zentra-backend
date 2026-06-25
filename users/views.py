@@ -1,33 +1,9 @@
-from django.shortcuts import render
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
 from firebase_admin import auth
 
-from .models import User
-
-
-
-
-
 class VerifyUserView(APIView):
-
-    def post(self, request):
-
-        token = request.data.get("token")
-
-        decoded = auth.verify_id_token(token)
-
-        return Response({
-            "uid": decoded["uid"],
-            "email": decoded.get("email"),
-            "name": decoded.get("name")
-        })
-
-
-class SignupView(APIView):
 
     def post(self, request):
 
@@ -40,49 +16,41 @@ class SignupView(APIView):
             )
 
         try:
+
             decoded = auth.verify_id_token(token)
 
-            uid = decoded["uid"]
-            email = decoded.get("email")
-            name = decoded.get("name", "")
-            photo = decoded.get("picture", "")
-            verified = decoded.get("email_verified", False)
+            firebase_user = auth.get_user(decoded["uid"])
 
-            user, created = User.objects.get_or_create(
-                uid=uid,
-                defaults={
-                    "email": email,
-                    "name": name,
-                    "photo_url": photo,
-                    "email_verified": verified,
-                }
-            )
+            if not firebase_user.email_verified:
 
-            if not created:
-                user.email = email
-                user.name = name
-                user.photo_url = photo
-                user.email_verified = verified
-                user.save()
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Please verify your email first."
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             return Response({
+
                 "success": True,
-                "new_user": created
+
+                "uid": firebase_user.uid,
+
+                "email": firebase_user.email,
+
+                "name": firebase_user.display_name,
+
+                "email_verified": firebase_user.email_verified
+
             })
 
         except Exception as e:
+
             return Response(
-                {"error": str(e)},
+                {
+                    "success": False,
+                    "error": str(e)
+                },
                 status=status.HTTP_401_UNAUTHORIZED
             )
-class SendVerificationEmailView(APIView):
-
-    def post(self, request):
-
-        email = request.data.get("email")
-
-        link = auth.generate_email_verification_link(email)
-
-        return Response({
-            "verification_link": link
-        })
