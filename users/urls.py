@@ -6,26 +6,10 @@ from .views import (
     VerifyUserView,
     ProfileView,
 )
-from .views import ProfileView, VerifyUserView
-from .views import LoginView
-
 
 urlpatterns = [
-    path(
-        "verify-user/",
-        VerifyUserView.as_view(),
-        name="verify-user",
-    ),
-    path(
-        "login/",
-        LoginView.as_view(),
-        name="login",
-    ),
-    path(
-    "profile/",
-    ProfileView.as_view(),
-    name="profile"
-),
     path("signup/", SignupView.as_view(), name="signup"),
-
+    path("login/", LoginView.as_view(), name="login"),
+    path("verify-user/", VerifyUserView.as_view(), name="verify-user"),
+    path("profile/", ProfileView.as_view(), name="profile"),
 ]
