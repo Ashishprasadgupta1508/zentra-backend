@@ -86,63 +86,43 @@ class LoginView(APIView):
 
         token = request.data.get("token")
 
-        if not token:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Token is required"
-                },
-                status=400
-            )
+        # Verify Firebase Token
 
-        try:
+        decoded = auth.verify_id_token(token)
 
-            decoded = auth.verify_id_token(token)
+        firebase_user = auth.get_user(decoded["uid"])
 
-            firebase_user = auth.get_user(decoded["uid"])
+        # Create user if first login
 
-            if not firebase_user.email_verified:
+        user, created = User.objects.get_or_create(
+            uid=firebase_user.uid,
+            defaults={
+                "email": firebase_user.email,
+                "name": firebase_user.display_name or "",
+                "email_verified": firebase_user.email_verified,
+            }
+        )
 
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Please verify your email first."
-                    },
-                    status=403
-                )
+        if not created:
+            user.email = firebase_user.email
+            user.name = firebase_user.display_name or ""
+            user.email_verified = firebase_user.email_verified
+            user.save()
 
-            user = User.objects.get(uid=firebase_user.uid)
+        # Generate JWT
 
-            refresh = RefreshToken.for_user(user)
+        refresh = RefreshToken.for_user(user)
 
-            return Response({
-
-                "success": True,
-
-                "access": str(refresh.access_token),
-
-                "refresh": str(refresh),
-
-                "user": {
-
-                    "uid": user.uid,
-                    "email": user.email,
-                    "name": user.name
-
-                }
-
-            })
-
-        except Exception as e:
-
-            return Response(
-                {
-                    "success": False,
-                    "error": str(e)
-                },
-                status=401
-            )
-        
+        return Response({
+            "success": True,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "user": {
+                "uid": user.uid,
+                "email": user.email,
+                "name": user.name,
+            }
+        })
 class SignupView(APIView):
 
     def post(self, request):
