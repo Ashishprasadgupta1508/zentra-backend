@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import UploadNoteView
+from .views import NoteDetailView, UploadNoteView
 
 urlpatterns = [
 
@@ -12,6 +12,16 @@ urlpatterns = [
 
         name="upload-note"
 
-    )
+    ),
+
+    path(
+
+    "<int:note_id>/",
+
+    NoteDetailView.as_view(),
+
+    name="note-detail"
+
+    ),
 
 ]

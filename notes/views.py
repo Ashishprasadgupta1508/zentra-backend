@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .services.module_builder import build_modules
+from .models import Note, Module, Topic
 
 from .models import Note
 from .serializers import NoteSerializer
@@ -49,6 +50,31 @@ class UploadNoteView(APIView):
         note.extracted_text = text
 
         ai = build_modules(text)
+        for index, module_data in enumerate(ai["modules"], start=1):
+
+            module = Module.objects.create(
+
+            note=note,
+
+            title=module_data["title"],
+
+            description="",
+
+            order=index
+
+            )
+
+        for topic in module_data["topics"]:
+
+            Topic.objects.create(
+
+            module=module,
+
+            title=topic,
+
+            difficulty="Medium"
+
+        )
 
         note.subject = ai["subject"]
 
@@ -67,3 +93,54 @@ class UploadNoteView(APIView):
             "modules": ai["modules"]
 
         })
+class NoteDetailView(APIView):
+
+    def get(self, request, note_id):
+
+        note = Note.objects.get(id=note_id)
+
+        data = {
+
+            "id": note.id,
+
+            "title": note.title,
+
+            "subject": note.subject,
+
+            "summary": note.summary,
+
+            "modules": []
+
+        }
+
+        modules = Module.objects.filter(note=note)
+
+        for module in modules:
+
+            data["modules"].append({
+
+                "id": module.id,
+
+                "title": module.title,
+
+                "topics": list(
+
+                    Topic.objects.filter(
+
+                        module=module
+
+                    ).values(
+
+                        "id",
+
+                        "title",
+
+                        "difficulty"
+
+                    )
+
+                )
+
+            })
+
+        return Response(data)
