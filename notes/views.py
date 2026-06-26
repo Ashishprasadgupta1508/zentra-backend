@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from .services.module_builder import build_modules
 
 from .models import Note
 from .serializers import NoteSerializer
@@ -42,12 +43,16 @@ class UploadNoteView(APIView):
         )
 
         text = extract_text_from_pdf(
-
             note.uploaded_file.path
-
         )
 
         note.extracted_text = text
+
+        ai = build_modules(text)
+
+        note.subject = ai["subject"]
+
+        note.summary = ai["summary"]
 
         note.save()
 
@@ -55,6 +60,10 @@ class UploadNoteView(APIView):
 
             "success": True,
 
-            "text": text
+            "subject": ai["subject"],
+
+            "summary": ai["summary"],
+
+            "modules": ai["modules"]
 
         })
