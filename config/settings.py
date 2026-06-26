@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import config.firebase
 from . import firebase
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +38,7 @@ ALLOWED_HOSTS = [
 ]
 
 MEDIA_URL = "/media/"
+GEMINI_API_KEY = "AQ.Ab8RN6JDRDU-FWDA31OZCqKtU52Wwz2_4zyVzM8oh13JrtEXww"
 
 MEDIA_ROOT = BASE_DIR / "media"
 # Application definition
