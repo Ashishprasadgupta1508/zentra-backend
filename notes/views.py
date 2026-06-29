@@ -46,6 +46,8 @@ def serialize_tasks(tasks):
     return [
         {
             "id": task.id,
+            "note_id": task.note_id,
+            "topic_id": task.topic_id,
             "title": task.title,
             "topic": task.topic.title if task.topic else "",
             "estimated_time": task.estimated_time,
@@ -173,6 +175,49 @@ def sync_task_status(task):
         task.status = Task.STATUS_IN_PROGRESS
     else:
         task.status = Task.STATUS_UNLOCKED
+
+
+def sync_note_tasks(note):
+    first_topic = ordered_topics_for_note(note).first()
+    if first_topic and first_topic.locked:
+        has_unlocked_topic = Topic.objects.filter(
+            module__note=note,
+            locked=False
+        ).exists()
+        if not has_unlocked_topic:
+            first_topic.locked = False
+            first_topic.save(update_fields=["locked"])
+
+    for index, topic in enumerate(ordered_topics_for_note(note), start=1):
+        task = Task.objects.filter(note=note, topic=topic).order_by("order", "id").first()
+        if not task:
+            task = Task.objects.create(
+                note=note,
+                topic=topic,
+                title=f"Study {topic.title}",
+                estimated_time=note.estimated_time,
+                task_type="lecture",
+                order=index,
+                locked=topic.locked,
+                status=Task.STATUS_LOCKED if topic.locked else Task.STATUS_UNLOCKED,
+                description=f"Read the lecture and complete the test for {topic.title}."
+            )
+
+        update_fields = []
+        if task.order != index:
+            task.order = index
+            update_fields.append("order")
+        if task.locked != topic.locked and not task.completed:
+            task.locked = topic.locked
+            update_fields.append("locked")
+
+        old_status = task.status
+        sync_task_status(task)
+        if task.status != old_status:
+            update_fields.append("status")
+
+        if update_fields:
+            task.save(update_fields=sorted(set(update_fields)))
 
 
 def unlock_task(task):
@@ -640,6 +685,8 @@ def recalculate_learning_progress(user, note):
 
 
 def ensure_progress_rows(user, note):
+    sync_note_tasks(note)
+
     for topic in ordered_topics_for_note(note):
         Progress.objects.update_or_create(
             user=user,
@@ -1079,6 +1126,9 @@ class StartTaskView(APIView):
 
     permission_classes = [FirebaseAuthenticated]
 
+    def get(self, request, task_id):
+        return self.post(request, task_id)
+
     def post(self, request, task_id):
 
         try:
@@ -1156,6 +1206,10 @@ class StartTaskView(APIView):
                 },
                 status=500
             )
+
+
+class TaskLectureView(StartTaskView):
+    pass
 
 
 class LectureView(APIView):

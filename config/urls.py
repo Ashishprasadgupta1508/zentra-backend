@@ -29,6 +29,7 @@ from notes.views import (
     StartTaskView,
     SubmitTestView,
     SubmitTopicTestView,
+    TaskLectureView,
     TaskListView,
     TopicTestView,
 )
@@ -56,6 +57,8 @@ urlpatterns = [
     path("api/tasks/<int:note_id>/", TaskListView.as_view(), name="task-list"),
     path("api/tasks/<int:task_id>/start", StartTaskView.as_view(), name="task-start-no-slash"),
     path("api/tasks/<int:task_id>/start/", StartTaskView.as_view(), name="task-start"),
+    path("api/tasks/<int:task_id>/lecture", TaskLectureView.as_view(), name="task-lecture-no-slash"),
+    path("api/tasks/<int:task_id>/lecture/", TaskLectureView.as_view(), name="task-lecture"),
     path("api/tasks/<int:task_id>/complete", CompleteTaskView.as_view(), name="task-complete-no-slash"),
     path("api/tasks/<int:task_id>/complete/", CompleteTaskView.as_view(), name="task-complete"),
     path("api/lecture/<int:topic_id>", LectureView.as_view(), name="topic-lecture-no-slash"),
