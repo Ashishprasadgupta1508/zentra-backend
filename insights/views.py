@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 import traceback
 
-from notes.models import Note
+from notes.models import ChatHistory, Note
 from notes.services.gemini import ask_gemini
 from notes.views import get_or_create_request_user
 from users.permissions import FirebaseAuthenticated
@@ -15,8 +15,6 @@ class ChatView(APIView):
 
         message = request.data.get("message")
         note_id = request.data.get("note_id")
-        notes_only = request.data.get("notes_only", False)
-        notes_only = notes_only is True or str(notes_only).lower() == "true"
 
         if not message:
             return Response(
@@ -28,42 +26,61 @@ class ChatView(APIView):
             )
 
         try:
-            prompt = message
+            user = get_or_create_request_user(request.user)
+            note = None
 
-            if notes_only:
-                if not note_id:
-                    return Response(
-                        {
-                            "success": False,
-                            "message": "note_id is required when notes_only is true"
-                        },
-                        status=400
+            if note_id:
+                notes = Note.objects.filter(id=note_id, user=user)
+            else:
+                notes = Note.objects.filter(user=user).order_by("-created_at")
+
+            if note_id and not notes.exists():
+                raise Note.DoesNotExist
+
+            context_parts = []
+            for note_obj in notes:
+                if note is None:
+                    note = note_obj
+                if note_obj.extracted_text:
+                    context_parts.append(
+                        f"Note title: {note_obj.title}\nNote content:\n{note_obj.extracted_text}"
                     )
 
-                user = get_or_create_request_user(request.user)
-                note = Note.objects.get(id=note_id, user=user)
+            context = "\n\n".join(context_parts).strip()
 
+            if not context:
+                answer = "I couldn't find this information in your uploaded notes."
+            else:
                 prompt = f"""
 Answer the user's question using only the uploaded note content below.
-If the answer is not present in the notes, say that it is not available in the uploaded notes.
+If the answer is not explicitly available inside the notes, return exactly:
+I couldn't find this information in your uploaded notes.
 
-Uploaded note title: {note.title}
+Do not use markdown.
+Do not use outside knowledge.
 
-Uploaded note content:
-{note.extracted_text}
+Uploaded notes:
+{context}
 
 User question:
 {message}
 """
 
-            answer = ask_gemini(prompt)
+                answer = ask_gemini(prompt).strip()
+
+            ChatHistory.objects.create(
+                user=user,
+                note=note,
+                message=message,
+                answer=answer
+            )
 
             return Response({
                 "success": True,
                 "response": answer,
                 "answer": answer,
                 "note_id": note_id,
-                "notes_only": notes_only
+                "notes_only": True
             })
 
         except Note.DoesNotExist:
