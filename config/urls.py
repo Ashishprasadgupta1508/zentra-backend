@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
+from notes.views import CompleteTaskView, SubmitTestView
 
 
 def home(request):
@@ -38,6 +39,8 @@ urlpatterns = [
 
     path("api/notes/", include("notes.urls")),
     path("api/insights/", include("insights.urls")),
+    path("api/tasks/<int:task_id>/complete/", CompleteTaskView.as_view(), name="task-complete"),
+    path("api/tests/<int:test_id>/submit/", SubmitTestView.as_view(), name="test-submit"),
 
 ]
 
