@@ -1,10 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from .services.module_builder import build_modules
 from .models import Note, Module, Topic
 
-from .models import Note
 from .serializers import NoteSerializer
 
 from .services.pdf_parser import extract_text_from_pdf
@@ -14,13 +14,19 @@ import traceback
 
 
 class UploadNoteView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        try:
 
-            uid = request.data.get("uid")
+        try:
+            print("REQUEST DATA:", request.data)
+            print("FILES:", request.FILES)
+            print("AUTH USER:", request.user)
+
             title = request.data.get("title")
             file = request.FILES.get("file")
+
+            print("REQUEST USER UID:", request.user.uid)
 
             if not file:
                 return Response(
@@ -28,7 +34,7 @@ class UploadNoteView(APIView):
                     status=400
                 )
 
-            user = User.objects.get(uid=uid)
+            user = User.objects.get(uid=request.user.uid)
 
             note = Note.objects.create(
                 user=user,
