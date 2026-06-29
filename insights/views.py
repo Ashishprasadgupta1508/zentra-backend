@@ -11,9 +11,12 @@ class ChatView(APIView):
     def post(self, request):
 
         try:
-            print("request.data =", request.data)
+            print("CONTENT TYPE =", request.content_type)
+            print("DATA =", request.data)
+            print("BODY =", request.body)
 
             message = request.data.get("message")
+
 
             # QueryDict fallback
             if not message:
