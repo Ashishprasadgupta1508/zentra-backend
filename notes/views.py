@@ -68,17 +68,7 @@ def serialize_tasks(tasks):
 
 def serialize_lectures(lectures):
     return [
-        {
-            "id": lecture.id,
-            "topic_id": lecture.topic_id,
-            "title": lecture.title,
-            "content": lecture.content,
-            "explanation": lecture.explanation,
-            "examples": lecture.examples,
-            "key_points": lecture.key_points,
-            "order": lecture.order,
-            "created_at": lecture.created_at,
-        }
+        serialize_lecture_detail(lecture)
         for lecture in lectures
     ]
 
@@ -99,6 +89,9 @@ def serialize_tests(tests):
                     "question_type": question.question_type,
                     "question": question.question,
                     "options": question.options,
+                    "answer": question.correct_answer or question.answer,
+                    "explanation": question.explanation,
+                    "difficulty": question.difficulty,
                     "order": question.order,
                 }
                 for question in questions
@@ -115,6 +108,9 @@ def serialize_test_questions(test):
             "question_type": question.question_type,
             "question": question.question,
             "options": question.options,
+            "answer": question.correct_answer or question.answer,
+            "explanation": question.explanation,
+            "difficulty": question.difficulty,
             "order": question.order,
         }
         for question in TestQuestion.objects.filter(test=test).order_by("order", "id")
@@ -429,6 +425,8 @@ def grade_test_submission(test, answers):
         "percentage": percentage,
         "correct_answers": correct_answers,
         "wrong_answers": wrong_answers,
+        "correct_answer_count": len(correct_answers),
+        "wrong_answer_count": len(wrong_answers),
         "weak_topics": weak_topics,
         "strong_topics": strong_topics,
         "passed": passed,
@@ -460,7 +458,7 @@ def get_or_create_topic_test(note, topic):
 
     for index, question_data in enumerate(questions, start=1):
         question_type = normalize_question_type(question_data.get("question_type"))
-        correct_answer = question_data.get("correct_answer", "")
+        correct_answer = question_data.get("correct_answer") or question_data.get("answer", "")
         options = question_data.get("options", [])
         if question_type == "true_false" and not options:
             options = ["True", "False"]
@@ -470,6 +468,8 @@ def get_or_create_topic_test(note, topic):
             question_type=question_type,
             answer=correct_answer,
             correct_answer=correct_answer,
+            explanation=question_data.get("explanation", ""),
+            difficulty=question_data.get("difficulty") or topic.difficulty or "Medium",
             options=options,
             order=index
         )
@@ -483,26 +483,115 @@ def get_or_create_topic_lecture(note, topic):
         return lecture
 
     lecture_data = build_lecture(note.extracted_text, topic.title)
+    simple_explanation = (
+        lecture_data.get("simple_explanation")
+        or lecture_data.get("explanation")
+        or ""
+    )
+    detailed_explanation = lecture_data.get("detailed_explanation", "")
+    real_life_examples = lecture_data.get("real_life_examples", [])
+    exam_oriented_examples = lecture_data.get("exam_oriented_examples", [])
+    examples = lecture_data.get("examples") or real_life_examples + exam_oriented_examples
     return Lecture.objects.create(
         note=note,
         topic=topic,
         title=lecture_data.get("title") or topic.title,
-        content=lecture_data.get("explanation", ""),
-        explanation=lecture_data.get("explanation", ""),
-        examples=lecture_data.get("examples", []),
+        content="\n\n".join(
+            part for part in [
+                lecture_data.get("introduction", ""),
+                simple_explanation,
+                detailed_explanation,
+            ]
+            if part
+        ),
+        introduction=lecture_data.get("introduction", ""),
+        explanation=simple_explanation,
+        detailed_explanation=detailed_explanation,
+        examples=examples,
+        real_life_examples=real_life_examples,
+        exam_oriented_examples=exam_oriented_examples,
         key_points=lecture_data.get("key_points", []),
+        important_definitions=lecture_data.get("important_definitions", []),
+        revision_notes=lecture_data.get("revision_notes", []),
+        common_mistakes=lecture_data.get("common_mistakes", []),
+        quick_recap=lecture_data.get("quick_recap", []),
         order=topic.order
     )
 
 
 def serialize_lecture_detail(lecture):
+    status = "locked"
+    if lecture.topic:
+        if lecture.topic.lecture_completed:
+            status = "completed"
+        elif not lecture.topic.locked:
+            status = "unlocked"
+
     return {
         "id": lecture.id,
+        "topic_id": lecture.topic_id,
         "title": lecture.title,
+        "introduction": lecture.introduction,
+        "simple_explanation": lecture.explanation or lecture.content,
         "explanation": lecture.explanation or lecture.content,
+        "detailed_explanation": lecture.detailed_explanation,
         "examples": lecture.examples,
+        "real_life_examples": lecture.real_life_examples,
+        "exam_oriented_examples": lecture.exam_oriented_examples,
         "key_points": lecture.key_points,
+        "important_definitions": lecture.important_definitions,
+        "revision_notes": lecture.revision_notes,
+        "common_mistakes": lecture.common_mistakes,
+        "quick_recap": lecture.quick_recap,
+        "status": status,
+        "order": lecture.order,
+        "created_at": lecture.created_at,
     }
+
+
+def complete_lecture_for_user(user, lecture):
+    if not lecture.topic:
+        return None, None, False
+
+    topic = lecture.topic
+    note = lecture.note
+    now = timezone.now()
+    task = Task.objects.filter(note=note, topic=topic).order_by("order", "id").first()
+
+    if task:
+        was_completed = task.completed
+        task.completed = True
+        task.completed_at = task.completed_at or now
+        task.locked = False
+        if task.started_at and not was_completed:
+            task.study_time_seconds += int((task.completed_at - task.started_at).total_seconds())
+        sync_task_status(task)
+        task.save(update_fields=[
+            "completed",
+            "completed_at",
+            "study_time_seconds",
+            "locked",
+            "status",
+        ])
+
+    if not topic.lecture_completed:
+        topic.lecture_completed = True
+        topic.save(update_fields=["lecture_completed"])
+
+    test = get_or_create_topic_test(note, topic)
+
+    Progress.objects.update_or_create(
+        user=user,
+        note=note,
+        topic=topic,
+        defaults={
+            "unlocked": True,
+            "lecture_completed": topic.lecture_completed,
+            "test_completed": topic.test_completed,
+        }
+    )
+    learning_progress = recalculate_learning_progress(user, note)
+    return task, learning_progress, bool(test)
 
 
 def apply_passed_test_side_effects(user, test):
@@ -578,19 +667,24 @@ def submit_test_for_user(user, test, answers):
         )
 
     learning_progress = recalculate_learning_progress(user, test.note)
+    correct_answer_count = result["correct_answer_count"]
+    wrong_answer_count = result["wrong_answer_count"]
     response = {
         "success": True,
         "submission_id": submission.id,
+        "passed": result["passed"],
         "score": result["score"],
         "total": result["total"],
         "percentage": result["percentage"],
         "accuracy": result["percentage"],
-        "correct_answers": result["correct_answers"],
-        "wrong_answers": result["wrong_answers"],
+        "correct_answers": correct_answer_count,
+        "wrong_answers": wrong_answer_count,
+        "correct_answer_details": result["correct_answers"],
+        "wrong_answer_details": result["wrong_answers"],
         "weak_topics": result["weak_topics"],
         "strong_topics": result["strong_topics"],
-        "passed": result["passed"],
         "next_task_unlocked": bool(next_task),
+        "next_lecture_unlocked": bool(next_topic),
         "next_topic_id": next_topic.id if next_topic else None,
         "next_task_id": next_task.id if next_task else None,
         "feedback": submission.feedback,
@@ -598,7 +692,9 @@ def submit_test_for_user(user, test, answers):
     }
 
     if not result["passed"]:
-        response["message"] = "Pass this test to continue."
+        response["next_task_unlocked"] = False
+        response["next_lecture_unlocked"] = False
+        response["message"] = "Pass the current test before continuing."
 
     return response
 
@@ -1024,41 +1120,32 @@ class CompleteTaskView(APIView):
                     status=403
                 )
 
-            was_completed = task.completed
-            completed_at = task.completed_at or timezone.now()
-            task.completed = True
-            task.completed_at = completed_at
-            if task.started_at and not was_completed:
-                task.study_time_seconds += int((task.completed_at - task.started_at).total_seconds())
-            sync_task_status(task)
-            task.save(update_fields=[
-                "completed",
-                "completed_at",
-                "study_time_seconds",
-                "status",
-                "locked",
-            ])
-
             if task.topic:
-                task.topic.lecture_completed = True
-                task.topic.save(update_fields=["lecture_completed"])
-
-            Progress.objects.update_or_create(
-                user=user,
-                note=task.note,
-                topic=task.topic,
-                defaults={
-                    "unlocked": True,
-                    "lecture_completed": bool(task.topic and task.topic.lecture_completed),
-                    "test_completed": bool(task.topic and task.topic.test_completed),
-                }
-            )
-            learning_progress = recalculate_learning_progress(user, task.note)
+                lecture = get_or_create_topic_lecture(task.note, task.topic)
+                task, learning_progress, test_available = complete_lecture_for_user(user, lecture)
+            else:
+                was_completed = task.completed
+                completed_at = task.completed_at or timezone.now()
+                task.completed = True
+                task.completed_at = completed_at
+                if task.started_at and not was_completed:
+                    task.study_time_seconds += int((task.completed_at - task.started_at).total_seconds())
+                sync_task_status(task)
+                task.save(update_fields=[
+                    "completed",
+                    "completed_at",
+                    "study_time_seconds",
+                    "status",
+                    "locked",
+                ])
+                learning_progress = recalculate_learning_progress(user, task.note)
+                test_available = False
 
             return Response({
                 "success": True,
                 "task": serialize_tasks([task])[0],
                 "lecture_completed": bool(task.topic and task.topic.lecture_completed),
+                "test_available": test_available,
                 "next_task_unlocked": False,
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
@@ -1260,12 +1347,14 @@ class LectureView(APIView):
                 }
             )
             learning_progress = recalculate_learning_progress(user, note)
+            lecture_data = serialize_lecture_detail(lecture)
 
             return Response({
                 "success": True,
+                **lecture_data,
                 "topic_id": topic.id,
                 "task": serialize_tasks([task])[0] if task else None,
-                "lecture": serialize_lecture_detail(lecture),
+                "lecture": lecture_data,
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1274,6 +1363,109 @@ class LectureView(APIView):
                 {
                     "success": False,
                     "error": "Topic not found"
+                },
+                status=404
+            )
+
+        except Exception as e:
+            traceback.print_exc()
+
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e)
+                },
+                status=500
+            )
+
+
+class LectureDetailView(APIView):
+
+    permission_classes = [FirebaseAuthenticated]
+
+    def get(self, request, lecture_id):
+
+        try:
+            user = get_or_create_request_user(request.user)
+            lecture = Lecture.objects.select_related(
+                "note",
+                "topic"
+            ).get(id=lecture_id, note__user=user)
+
+            if lecture.topic and lecture.topic.locked:
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Lecture is locked"
+                    },
+                    status=403
+                )
+
+            lecture_data = serialize_lecture_detail(lecture)
+            return Response({
+                "success": True,
+                **lecture_data,
+                "lecture": lecture_data,
+            })
+
+        except Lecture.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": "Lecture not found"
+                },
+                status=404
+            )
+
+        except Exception as e:
+            traceback.print_exc()
+
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e)
+                },
+                status=500
+            )
+
+
+class CompleteLectureView(APIView):
+
+    permission_classes = [FirebaseAuthenticated]
+
+    def post(self, request, lecture_id):
+
+        try:
+            user = get_or_create_request_user(request.user)
+            lecture = Lecture.objects.select_related(
+                "note",
+                "topic"
+            ).get(id=lecture_id, note__user=user)
+
+            if lecture.topic and lecture.topic.locked:
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Lecture is locked"
+                    },
+                    status=403
+                )
+
+            task, learning_progress, test_available = complete_lecture_for_user(user, lecture)
+
+            return Response({
+                "success": True,
+                "lecture_completed": bool(lecture.topic and lecture.topic.lecture_completed),
+                "test_available": test_available,
+                "task": serialize_tasks([task])[0] if task else None,
+                "progress_summary": serialize_learning_progress(learning_progress),
+            })
+
+        except Lecture.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "error": "Lecture not found"
                 },
                 status=404
             )

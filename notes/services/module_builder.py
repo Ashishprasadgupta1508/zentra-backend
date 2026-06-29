@@ -52,9 +52,18 @@ def _fallback_analysis(text):
 def _fallback_lecture(topic_title):
     return {
         "title": topic_title,
-        "explanation": f"Review {topic_title} using the uploaded notes.",
+        "introduction": f"This lecture covers {topic_title} from the uploaded notes.",
+        "simple_explanation": f"Review the main idea of {topic_title} using the uploaded notes.",
+        "detailed_explanation": f"Study the definitions, steps, examples, and exam points about {topic_title} from the uploaded notes.",
+        "explanation": f"Review the main idea of {topic_title} using the uploaded notes.",
+        "real_life_examples": [],
+        "exam_oriented_examples": [],
         "examples": [],
         "key_points": [topic_title],
+        "important_definitions": [],
+        "revision_notes": [f"Revise {topic_title} directly from the uploaded notes."],
+        "common_mistakes": [],
+        "quick_recap": [topic_title],
         "source": "fallback"
     }
 
@@ -66,7 +75,9 @@ def _fallback_test(topic_title):
                 "question_type": "short_answer",
                 "question": f"What do you understand by {topic_title}?",
                 "options": [],
-                "correct_answer": topic_title
+                "correct_answer": topic_title,
+                "explanation": f"The answer should be based on the uploaded notes for {topic_title}.",
+                "difficulty": "Medium"
             }
         ],
         "source": "fallback"
@@ -124,17 +135,34 @@ Uploaded study material:
 
 def build_lecture(note_text, topic_title):
     prompt = f"""
-Create a lecture for the topic below using only the uploaded notes.
+Create a complete educational lecture for the topic below using only the uploaded notes.
 Return only valid JSON. No markdown.
 Use text only.
+Do not invent facts that are not supported by the uploaded notes.
+Do not return a single paragraph.
 
 Return exactly:
 {{
   "title": "",
-  "explanation": "",
-  "examples": ["", ""],
-  "key_points": ["", ""]
+  "introduction": "",
+  "simple_explanation": "",
+  "detailed_explanation": "",
+  "real_life_examples": ["", ""],
+  "exam_oriented_examples": ["", ""],
+  "key_points": ["", ""],
+  "important_definitions": ["", ""],
+  "revision_notes": ["", ""],
+  "common_mistakes": ["", ""],
+  "quick_recap": ["", ""]
 }}
+
+Content requirements:
+- introduction: 2-4 sentences.
+- simple_explanation: explain plainly for a beginner.
+- detailed_explanation: deeper explanation with logical sections in paragraph form.
+- real_life_examples: practical examples from or clearly grounded in the notes.
+- exam_oriented_examples: exam-style examples or likely question patterns from the notes.
+- key_points, important_definitions, revision_notes, common_mistakes, quick_recap: concise lists.
 
 Topic:
 {topic_title}
@@ -145,11 +173,26 @@ Uploaded notes:
 
     try:
         data = _extract_json(ask_gemini(prompt))
-        if isinstance(data, dict) and data.get("explanation"):
+        if isinstance(data, dict) and (
+            data.get("simple_explanation") or data.get("detailed_explanation")
+        ):
             data["source"] = "gemini"
             data.setdefault("title", topic_title)
+            data.setdefault("introduction", "")
+            data.setdefault("simple_explanation", data.get("explanation", ""))
+            data.setdefault("detailed_explanation", "")
+            data.setdefault("real_life_examples", [])
+            data.setdefault("exam_oriented_examples", [])
+            data["examples"] = (
+                data.get("examples")
+                or data.get("real_life_examples", []) + data.get("exam_oriented_examples", [])
+            )
             data.setdefault("examples", [])
             data.setdefault("key_points", [])
+            data.setdefault("important_definitions", [])
+            data.setdefault("revision_notes", [])
+            data.setdefault("common_mistakes", [])
+            data.setdefault("quick_recap", [])
             return data
     except Exception as e:
         print("LECTURE BUILDER ERROR:", e)
@@ -162,6 +205,7 @@ def build_test(note_text, topic_title):
 Generate a test for the topic below using only the uploaded notes.
 Return only valid JSON. No markdown.
 Include MCQ, short answer, and true false questions where possible.
+Do not invent facts outside the uploaded notes.
 
 Return exactly:
 {{
@@ -170,10 +214,18 @@ Return exactly:
       "question_type": "mcq | short_answer | true_false",
       "question": "",
       "options": ["", "", "", ""],
-      "correct_answer": ""
+      "correct_answer": "",
+      "explanation": "",
+      "difficulty": "Easy | Medium | Hard"
     }}
   ]
 }}
+
+Question requirements:
+- Generate 20 questions when enough note content exists.
+- Include a mix of MCQ, true_false, and short_answer.
+- Every question must include answer, explanation, and difficulty.
+- For true_false questions, options must be ["True", "False"].
 
 Topic:
 {topic_title}

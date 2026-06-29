@@ -22,8 +22,10 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from insights.views import ChatView
 from notes.views import (
+    CompleteLectureView,
     CompleteTaskView,
     FinalReportView,
+    LectureDetailView,
     LectureView,
     ProgressView,
     StartTaskView,
@@ -63,6 +65,10 @@ urlpatterns = [
     path("api/tasks/<int:task_id>/complete/", CompleteTaskView.as_view(), name="task-complete"),
     path("api/lecture/<int:topic_id>", LectureView.as_view(), name="topic-lecture-no-slash"),
     path("api/lecture/<int:topic_id>/", LectureView.as_view(), name="topic-lecture"),
+    path("api/lectures/<int:lecture_id>", LectureDetailView.as_view(), name="lecture-detail-no-slash"),
+    path("api/lectures/<int:lecture_id>/", LectureDetailView.as_view(), name="lecture-detail"),
+    path("api/lectures/<int:lecture_id>/complete", CompleteLectureView.as_view(), name="lecture-complete-no-slash"),
+    path("api/lectures/<int:lecture_id>/complete/", CompleteLectureView.as_view(), name="lecture-complete"),
     path("api/test/<int:topic_id>", TopicTestView.as_view(), name="topic-test-no-slash"),
     path("api/test/<int:topic_id>/", TopicTestView.as_view(), name="topic-test"),
     path("api/test/<int:topic_id>/submit", SubmitTopicTestView.as_view(), name="topic-test-submit-no-slash"),

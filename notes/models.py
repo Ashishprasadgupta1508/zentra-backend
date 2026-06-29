@@ -134,11 +134,27 @@ class Lecture(models.Model):
 
     content = models.TextField(blank=True)
 
+    introduction = models.TextField(blank=True)
+
     explanation = models.TextField(blank=True)
+
+    detailed_explanation = models.TextField(blank=True)
 
     examples = models.JSONField(default=list, blank=True)
 
+    real_life_examples = models.JSONField(default=list, blank=True)
+
+    exam_oriented_examples = models.JSONField(default=list, blank=True)
+
     key_points = models.JSONField(default=list, blank=True)
+
+    important_definitions = models.JSONField(default=list, blank=True)
+
+    revision_notes = models.JSONField(default=list, blank=True)
+
+    common_mistakes = models.JSONField(default=list, blank=True)
+
+    quick_recap = models.JSONField(default=list, blank=True)
 
     order = models.IntegerField(default=1)
 
@@ -251,6 +267,10 @@ class TestQuestion(models.Model):
     answer = models.TextField(blank=True)
 
     correct_answer = models.TextField(blank=True)
+
+    explanation = models.TextField(blank=True)
+
+    difficulty = models.CharField(max_length=50, default="Medium")
 
     options = models.JSONField(default=list, blank=True)
 
