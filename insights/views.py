@@ -10,40 +10,19 @@ class ChatView(APIView):
 
     def post(self, request):
 
+        message = request.data.get("message")
+
+        if not message:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Message is required"
+                },
+                status=400
+            )
+
         try:
-            print("CONTENT TYPE =", request.content_type)
-            print("DATA =", request.data)
-            print("BODY =", request.body)
-
-            message = request.data.get("message")
-
-
-            # QueryDict fallback
-            if not message:
-                import json
-
-                body = request.data.get("_content")
-
-                if body:
-                    body = json.loads(body)
-                    message = body.get("message")
-
-            print("message =", message)
-
-            if not message:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Message is required"
-                    },
-                    status=400
-                )
-
-            print("Calling Gemini...")
-
             answer = ask_gemini(message)
-
-            print("Gemini Response:", answer)
 
             return Response({
                 "success": True,
@@ -51,14 +30,10 @@ class ChatView(APIView):
             })
 
         except Exception as e:
-
+            import traceback
             traceback.print_exc()
 
-            return Response(
-                {
-                    "success": False,
-                    "error": str(e),
-                    "type": str(type(e))
-                },
-                status=500
-            )
+            return Response({
+                "success": False,
+                "error": str(e)
+            }, status=500)
