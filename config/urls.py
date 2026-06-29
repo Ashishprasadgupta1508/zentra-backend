@@ -23,8 +23,10 @@ from django.urls import include, path
 from insights.views import ChatView
 from notes.views import (
     CompleteTaskView,
+    FinalReportView,
     LectureView,
     ProgressView,
+    StartTaskView,
     SubmitTestView,
     SubmitTopicTestView,
     TaskListView,
@@ -52,6 +54,8 @@ urlpatterns = [
     path("api/chat/", ChatView.as_view(), name="chat"),
     path("api/tasks/<int:note_id>", TaskListView.as_view(), name="task-list-no-slash"),
     path("api/tasks/<int:note_id>/", TaskListView.as_view(), name="task-list"),
+    path("api/tasks/<int:task_id>/start", StartTaskView.as_view(), name="task-start-no-slash"),
+    path("api/tasks/<int:task_id>/start/", StartTaskView.as_view(), name="task-start"),
     path("api/tasks/<int:task_id>/complete", CompleteTaskView.as_view(), name="task-complete-no-slash"),
     path("api/tasks/<int:task_id>/complete/", CompleteTaskView.as_view(), name="task-complete"),
     path("api/lecture/<int:topic_id>", LectureView.as_view(), name="topic-lecture-no-slash"),
@@ -62,6 +66,8 @@ urlpatterns = [
     path("api/test/<int:topic_id>/submit/", SubmitTopicTestView.as_view(), name="topic-test-submit"),
     path("api/progress", ProgressView.as_view(), name="progress-no-slash"),
     path("api/progress/", ProgressView.as_view(), name="progress"),
+    path("api/notes/<int:note_id>/final-report", FinalReportView.as_view(), name="final-report-no-slash"),
+    path("api/notes/<int:note_id>/final-report/", FinalReportView.as_view(), name="final-report"),
     path("api/tests/<int:test_id>/submit", SubmitTestView.as_view(), name="test-submit-no-slash"),
     path("api/tests/<int:test_id>/submit/", SubmitTestView.as_view(), name="test-submit"),
 
