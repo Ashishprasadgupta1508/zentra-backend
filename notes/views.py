@@ -135,6 +135,7 @@ class UploadNoteView(APIView):
             )
 
         except Exception as e:
+            import traceback
 
             print("=" * 60)
             print("UPLOAD ERROR")
@@ -144,9 +145,10 @@ class UploadNoteView(APIView):
             return Response(
                 {
                     "success": False,
-                    "error": str(e)
+                    "error": str(e),
+                    "type": type(e).__name__,
                 },
-                status=500
+                status=500,
             )
 
 
