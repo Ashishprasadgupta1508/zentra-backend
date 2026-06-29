@@ -1,16 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .services.module_builder import build_modules
-from .models import Note, Module, Topic
-
-from .serializers import NoteSerializer
-
-from .services.pdf_parser import extract_text_from_pdf
+import traceback
 
 from users.models import User
-import traceback
+
+from .models import Note, Module, Topic
+from .services.pdf_parser import extract_text_from_pdf
+from .services.module_builder import build_modules
 
 
 class UploadNoteView(APIView):
@@ -19,22 +16,54 @@ class UploadNoteView(APIView):
     def post(self, request):
 
         try:
+
+            print("=" * 60)
+            print("UPLOAD REQUEST")
+            print("=" * 60)
+
             print("REQUEST DATA:", request.data)
             print("FILES:", request.FILES)
             print("AUTH USER:", request.user)
+            print("AUTH USER TYPE:", type(request.user))
+            print("AUTH UID:", getattr(request.user, "uid", None))
 
             title = request.data.get("title")
             file = request.FILES.get("file")
 
-            print("REQUEST USER UID:", request.user.uid)
-
             if not file:
                 return Response(
-                    {"error": "PDF required"},
+                    {
+                        "success": False,
+                        "error": "PDF required"
+                    },
                     status=400
                 )
 
-            user = User.objects.get(uid=request.user.uid)
+            uid = getattr(request.user, "uid", None)
+
+            if not uid:
+                return Response(
+                    {
+                        "success": False,
+                        "error": "User UID not found"
+                    },
+                    status=401
+                )
+
+            print("Looking for user:", uid)
+
+            try:
+                user = User.objects.get(uid=uid)
+            except User.DoesNotExist:
+                return Response(
+                    {
+                        "success": False,
+                        "error": f"User with uid '{uid}' does not exist"
+                    },
+                    status=404
+                )
+
+            print("User Found:", user.email)
 
             note = Note.objects.create(
                 user=user,
@@ -42,11 +71,21 @@ class UploadNoteView(APIView):
                 uploaded_file=file
             )
 
-            text = extract_text_from_pdf(note.uploaded_file.path)
+            print("Note Created:", note.id)
+
+            text = extract_text_from_pdf(
+                note.uploaded_file.path
+            )
+
+            print("PDF Extracted")
+            print("Characters:", len(text))
 
             note.extracted_text = text
 
             ai = build_modules(text)
+
+            print("AI Response:")
+            print(ai)
 
             for index, module_data in enumerate(ai["modules"], start=1):
 
@@ -58,6 +97,7 @@ class UploadNoteView(APIView):
                 )
 
                 for topic in module_data["topics"]:
+
                     Topic.objects.create(
                         module=module,
                         title=topic,
@@ -68,15 +108,24 @@ class UploadNoteView(APIView):
             note.summary = ai["summary"]
             note.save()
 
-            return Response({
-                "success": True,
-                "subject": ai["subject"],
-                "summary": ai["summary"],
-                "modules": ai["modules"]
-            })
+            print("SUCCESS")
+            print("=" * 60)
+
+            return Response(
+                {
+                    "success": True,
+                    "subject": note.subject,
+                    "summary": note.summary,
+                    "modules": ai["modules"]
+                }
+            )
 
         except Exception as e:
+
+            print("=" * 60)
+            print("UPLOAD ERROR")
             traceback.print_exc()
+            print("=" * 60)
 
             return Response(
                 {
@@ -85,54 +134,70 @@ class UploadNoteView(APIView):
                 },
                 status=500
             )
+
+
 class NoteDetailView(APIView):
+
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, note_id):
 
-        note = Note.objects.get(id=note_id)
+        try:
 
-        data = {
+            note = Note.objects.get(id=note_id)
 
-            "id": note.id,
+            modules_data = []
 
-            "title": note.title,
+            modules = Module.objects.filter(note=note)
 
-            "subject": note.subject,
+            for module in modules:
 
-            "summary": note.summary,
+                topics = Topic.objects.filter(module=module)
 
-            "modules": []
+                modules_data.append({
 
-        }
+                    "id": module.id,
 
-        modules = Module.objects.filter(note=note)
+                    "title": module.title,
 
-        for module in modules:
-
-            data["modules"].append({
-
-                "id": module.id,
-
-                "title": module.title,
-
-                "topics": list(
-
-                    Topic.objects.filter(
-
-                        module=module
-
-                    ).values(
-
-                        "id",
-
-                        "title",
-
-                        "difficulty"
-
+                    "topics": list(
+                        topics.values(
+                            "id",
+                            "title",
+                            "difficulty"
+                        )
                     )
 
-                )
+                })
+
+            return Response({
+
+                "id": note.id,
+
+                "title": note.title,
+
+                "subject": note.subject,
+
+                "summary": note.summary,
+
+                "modules": modules_data
 
             })
 
-        return Response(data)
+        except Exception as e:
+
+            traceback.print_exc()
+
+            return Response(
+
+                {
+
+                    "success": False,
+
+                    "error": str(e)
+
+                },
+
+                status=500
+
+            )
