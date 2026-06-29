@@ -16,88 +16,58 @@ import traceback
 class UploadNoteView(APIView):
 
     def post(self, request):
-
-        uid = request.data.get("uid")
-
-        title = request.data.get("title")
-
-        file = request.FILES.get("file")
-
-        if not file:
-
-            return Response(
-                {
-                    "error": "PDF required"
-                },
-                status=400
-            )
-
-        user = User.objects.get(uid=uid)
-
-        note = Note.objects.create(
-
-            user=user,
-
-            title=title,
-
-            uploaded_file=file
-
-        )
-
-        text = extract_text_from_pdf(
-            note.uploaded_file.path
-        )
-
-        note.extracted_text = text
-
-        ai = build_modules(text)
-        for index, module_data in enumerate(ai["modules"], start=1):
-
-            module = Module.objects.create(
-
-            note=note,
-
-            title=module_data["title"],
-
-            description="",
-
-            order=index
-
-            )
-
-        for topic in module_data["topics"]:
-
-            Topic.objects.create(
-
-            module=module,
-
-            title=topic,
-
-            difficulty="Medium"
-
-        )
-
-        note.subject = ai["subject"]
-
-        note.summary = ai["summary"]
-
-        note.save()
-
-        return Response({
-
-            "success": True,
-
-            "subject": ai["subject"],
-
-            "summary": ai["summary"],
-
-            "modules": ai["modules"]
-
-        })
-    def post(self, request):
         try:
-            # tumhara pura upload code
-            ...
+
+            uid = request.data.get("uid")
+            title = request.data.get("title")
+            file = request.FILES.get("file")
+
+            if not file:
+                return Response(
+                    {"error": "PDF required"},
+                    status=400
+                )
+
+            user = User.objects.get(uid=uid)
+
+            note = Note.objects.create(
+                user=user,
+                title=title,
+                uploaded_file=file
+            )
+
+            text = extract_text_from_pdf(note.uploaded_file.path)
+
+            note.extracted_text = text
+
+            ai = build_modules(text)
+
+            for index, module_data in enumerate(ai["modules"], start=1):
+
+                module = Module.objects.create(
+                    note=note,
+                    title=module_data["title"],
+                    description="",
+                    order=index
+                )
+
+                for topic in module_data["topics"]:
+                    Topic.objects.create(
+                        module=module,
+                        title=topic,
+                        difficulty="Medium"
+                    )
+
+            note.subject = ai["subject"]
+            note.summary = ai["summary"]
+            note.save()
+
+            return Response({
+                "success": True,
+                "subject": ai["subject"],
+                "summary": ai["summary"],
+                "modules": ai["modules"]
+            })
 
         except Exception as e:
             traceback.print_exc()
