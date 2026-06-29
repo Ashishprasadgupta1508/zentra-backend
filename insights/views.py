@@ -9,36 +9,22 @@ class ChatView(APIView):
 
     def post(self, request):
 
+        print("request.data =", request.data)
+        print("request.body =", request.body)
+
         message = request.data.get("message")
 
         if not message:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Message is required"
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-
-            answer = ask_gemini(message)
-
             return Response({
-                "success": True,
-                "response": answer
-            })
+                "success": False,
+                "request_data": request.data,
+                "body": request.body.decode("utf-8"),
+                "message": "Message is required"
+            }, status=400)
 
-        except Exception as e:
+        answer = ask_gemini(message)
 
-            import traceback
-
-            traceback.print_exc()
-
-            return Response(
-                {
-                    "success": False,
-                    "error": str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response({
+            "success": True,
+            "response": answer
+        })
