@@ -38,7 +38,7 @@ ALLOWED_HOSTS = [
 ]
 
 MEDIA_URL = "/media/"
-GEMINI_API_KEY = "AQ.Ab8RN6LZZFYjdwkBxzqJZ4hMVJFamUvOPzo4Fz6ARzqiLigdlg"
+GEMINI_API_KEY = "AQ.Ab8RN6KTDT_wnwN7me1SpCe8NKZHKh5pEBwB2BAqMfmw6n8z4Q"
 
 MEDIA_ROOT = BASE_DIR / "media"
 # Application definition
