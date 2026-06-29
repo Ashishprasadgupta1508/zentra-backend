@@ -1,5 +1,4 @@
 from google import genai
-
 from django.conf import settings
 
 client = genai.Client(
@@ -7,13 +6,16 @@ client = genai.Client(
 )
 
 def ask_gemini(prompt):
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
 
-    response = client.models.generate_content(
+        print(response)
 
-        model="gemini-2.5-flash",
+        return response.text
 
-        contents=prompt
-
-    )
-
-    return response.text
+    except Exception as e:
+        print("Gemini Error:", e)
+        raise
