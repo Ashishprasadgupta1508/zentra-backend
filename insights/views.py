@@ -9,7 +9,23 @@ from users.permissions import FirebaseAuthenticated
 
 
 def get_chat_message(data):
-    for key in ("message", "prompt", "question", "query", "text"):
+    if isinstance(data, str):
+        return data.strip()
+
+    if not hasattr(data, "get"):
+        return ""
+
+    for key in (
+        "message",
+        "prompt",
+        "question",
+        "query",
+        "text",
+        "input",
+        "content",
+        "user_message",
+        "userMessage",
+    ):
         value = data.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
