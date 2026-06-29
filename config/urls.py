@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from django.urls import include, path
 
 
 def home(request):
@@ -36,6 +37,7 @@ urlpatterns = [
     path("api/", include("users.urls")),
 
     path("api/notes/", include("notes.urls")),
+    path("api/insights/", include("insights.urls")),
 
 ]
 
