@@ -48,13 +48,21 @@ urlpatterns = [
 
     path("api/notes/", include("notes.urls")),
     path("api/insights/", include("insights.urls")),
+    path("api/chat", ChatView.as_view(), name="chat-no-slash"),
     path("api/chat/", ChatView.as_view(), name="chat"),
+    path("api/tasks/<int:note_id>", TaskListView.as_view(), name="task-list-no-slash"),
     path("api/tasks/<int:note_id>/", TaskListView.as_view(), name="task-list"),
+    path("api/tasks/<int:task_id>/complete", CompleteTaskView.as_view(), name="task-complete-no-slash"),
     path("api/tasks/<int:task_id>/complete/", CompleteTaskView.as_view(), name="task-complete"),
+    path("api/lecture/<int:topic_id>", LectureView.as_view(), name="topic-lecture-no-slash"),
     path("api/lecture/<int:topic_id>/", LectureView.as_view(), name="topic-lecture"),
+    path("api/test/<int:topic_id>", TopicTestView.as_view(), name="topic-test-no-slash"),
     path("api/test/<int:topic_id>/", TopicTestView.as_view(), name="topic-test"),
+    path("api/test/<int:topic_id>/submit", SubmitTopicTestView.as_view(), name="topic-test-submit-no-slash"),
     path("api/test/<int:topic_id>/submit/", SubmitTopicTestView.as_view(), name="topic-test-submit"),
+    path("api/progress", ProgressView.as_view(), name="progress-no-slash"),
     path("api/progress/", ProgressView.as_view(), name="progress"),
+    path("api/tests/<int:test_id>/submit", SubmitTestView.as_view(), name="test-submit-no-slash"),
     path("api/tests/<int:test_id>/submit/", SubmitTestView.as_view(), name="test-submit"),
 
 ]

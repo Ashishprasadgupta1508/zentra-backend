@@ -15,7 +15,12 @@ class FirebaseAuthentication(BaseAuthentication):
         if not auth_header:
             return None
 
-        token = auth_header.split(" ")[1]
+        parts = auth_header.split()
+
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            raise AuthenticationFailed("Invalid Authorization header")
+
+        token = parts[1]
 
         try:
             decoded = auth.verify_id_token(token)
