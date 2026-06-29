@@ -10,6 +10,7 @@ from .serializers import NoteSerializer
 from .services.pdf_parser import extract_text_from_pdf
 
 from users.models import User
+import traceback
 
 
 class UploadNoteView(APIView):
@@ -93,6 +94,21 @@ class UploadNoteView(APIView):
             "modules": ai["modules"]
 
         })
+    def post(self, request):
+        try:
+            # tumhara pura upload code
+            ...
+
+        except Exception as e:
+            traceback.print_exc()
+
+            return Response(
+                {
+                    "success": False,
+                    "error": str(e)
+                },
+                status=500
+            )
 class NoteDetailView(APIView):
 
     def get(self, request, note_id):
