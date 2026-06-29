@@ -10,21 +10,14 @@ def build_modules(text):
 
     response = ask_gemini(prompt)
 
-    print("RAW GEMINI RESPONSE:")
+    print("RAW GEMINI RESPONSE")
     print(response)
 
-    response = response.replace("```json", "")
-    response = response.replace("```", "")
-    response = response.strip()
+    response = (
+        response
+        .replace("```json", "")
+        .replace("```", "")
+        .strip()
+    )
 
-    try:
-        return json.loads(response)
-
-    except Exception as e:
-
-        print("JSON ERROR:", e)
-
-        print("RAW RESPONSE:")
-        print(response)
-
-        raise
+    return json.loads(response)
