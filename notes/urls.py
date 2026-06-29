@@ -1,8 +1,18 @@
 from django.urls import path
 
-from .views import NoteDetailView, UploadNoteView
+from .views import NoteDetailView, NoteListView, UploadNoteView
 
 urlpatterns = [
+
+    path(
+
+        "",
+
+        NoteListView.as_view(),
+
+        name="note-list"
+
+    ),
 
     path(
 

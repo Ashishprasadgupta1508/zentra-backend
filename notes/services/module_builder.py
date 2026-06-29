@@ -9,6 +9,7 @@ def _fallback_modules(text):
     summary = " ".join(text.split())[:500]
 
     return {
+        "source": "fallback",
         "subject": "Study Notes",
         "summary": summary or "Uploaded study material.",
         "modules": [
@@ -59,6 +60,7 @@ def build_modules(text):
         data = _extract_json(result)
 
         if _is_valid_modules(data):
+            data["source"] = "gemini"
             return data
 
     except Exception as e:
