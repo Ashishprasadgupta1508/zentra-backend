@@ -40,16 +40,15 @@ class UploadNoteView(APIView):
                     status=401
                 )
 
-            try:
-                user = User.objects.get(uid=uid)
-            except User.DoesNotExist:
-                return Response(
-                    {
-                        "success": False,
-                        "error": f"User with uid '{uid}' does not exist"
-                    },
-                    status=404
-                )
+            user, _ = User.objects.get_or_create(
+                uid=uid,
+                defaults={
+                    "email": request.user.email or f"{uid}@firebase.local",
+                    "name": request.user.display_name or "",
+                    "photo_url": request.user.photo_url,
+                    "email_verified": request.user.email_verified,
+                }
+            )
 
             note = Note.objects.create(
                 user=user,
