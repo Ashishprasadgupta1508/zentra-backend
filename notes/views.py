@@ -84,6 +84,20 @@ class UploadNoteView(APIView):
 
             ai = build_modules(text)
 
+            ai = {
+                "subject": "Test Subject",
+                "summary": "Test Summary",
+                "modules": [
+                    {
+                        "title": "Module 1",
+                        "topics": [
+                            "Topic 1",
+                            "Topic 2"
+                        ]
+                    }
+                ]
+            }
+
             print("AI Response:")
             print(ai)
 
