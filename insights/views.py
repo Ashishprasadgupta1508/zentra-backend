@@ -8,12 +8,31 @@ from notes.views import get_or_create_request_user
 from users.permissions import FirebaseAuthenticated
 
 
+def get_chat_message(data):
+    for key in ("message", "prompt", "question", "query", "text"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    messages = data.get("messages")
+    if isinstance(messages, list):
+        for item in reversed(messages):
+            if not isinstance(item, dict):
+                continue
+
+            content = item.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+
+    return ""
+
+
 class ChatView(APIView):
     permission_classes = [FirebaseAuthenticated]
 
     def post(self, request):
 
-        message = request.data.get("message")
+        message = get_chat_message(request.data)
         note_id = request.data.get("note_id")
 
         if not message:
