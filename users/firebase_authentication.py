@@ -10,24 +10,26 @@ class FirebaseAuthentication(BaseAuthentication):
 
         auth_header = request.headers.get("Authorization")
 
+        print("HEADER:", auth_header)
+
         if not auth_header:
-
             return None
-
-        if not auth_header.startswith("Bearer "):
-
-            raise AuthenticationFailed("Invalid token")
 
         token = auth_header.split(" ")[1]
 
         try:
-
             decoded = auth.verify_id_token(token)
+
+            print("DECODED:", decoded)
 
             firebase_user = auth.get_user(decoded["uid"])
 
+            print("FIREBASE UID:", firebase_user.uid)
+
             return (firebase_user, None)
 
-        except Exception:
+        except Exception as e:
 
-            raise AuthenticationFailed("Invalid Firebase Token")
+            print("AUTH ERROR:", e)
+
+            raise AuthenticationFailed(str(e))
