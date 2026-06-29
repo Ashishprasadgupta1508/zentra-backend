@@ -1,9 +1,9 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 import traceback
 
 from users.models import User
+from users.permissions import FirebaseAuthenticated
 
 from .models import Note, Module, Topic
 from .services.pdf_parser import extract_text_from_pdf
@@ -11,24 +11,14 @@ from .services.module_builder import build_modules
 
 
 class UploadNoteView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FirebaseAuthenticated]
 
     def post(self, request):
 
         try:
 
-            print("=" * 60)
-            print("UPLOAD REQUEST")
-            print("=" * 60)
-
-            print("REQUEST DATA:", request.data)
-            print("FILES:", request.FILES)
-            print("AUTH USER:", request.user)
-            print("AUTH USER TYPE:", type(request.user))
-            print("AUTH UID:", getattr(request.user, "uid", None))
-
-            title = request.data.get("title")
             file = request.FILES.get("file")
+            title = request.data.get("title") or getattr(file, "name", "Untitled Note")
 
             if not file:
                 return Response(
@@ -50,8 +40,6 @@ class UploadNoteView(APIView):
                     status=401
                 )
 
-            print("Looking for user:", uid)
-
             try:
                 user = User.objects.get(uid=uid)
             except User.DoesNotExist:
@@ -63,43 +51,29 @@ class UploadNoteView(APIView):
                     status=404
                 )
 
-            print("User Found:", user.email)
-
             note = Note.objects.create(
                 user=user,
                 title=title,
                 uploaded_file=file
             )
 
-            print("Note Created:", note.id)
-
             text = extract_text_from_pdf(
                 note.uploaded_file.path
             )
 
-            print("PDF Extracted")
-            print("Characters:", len(text))
+            if not text.strip():
+                note.delete()
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Could not extract text from this PDF"
+                    },
+                    status=400
+                )
 
             note.extracted_text = text
 
             ai = build_modules(text)
-
-            ai = {
-                "subject": "Test Subject",
-                "summary": "Test Summary",
-                "modules": [
-                    {
-                        "title": "Module 1",
-                        "topics": [
-                            "Topic 1",
-                            "Topic 2"
-                        ]
-                    }
-                ]
-            }
-
-            print("AI Response:")
-            print(ai)
 
             for index, module_data in enumerate(ai["modules"], start=1):
 
@@ -122,9 +96,6 @@ class UploadNoteView(APIView):
             note.summary = ai["summary"]
             note.save()
 
-            print("SUCCESS")
-            print("=" * 60)
-
             return Response(
                 {
                     "success": True,
@@ -135,12 +106,7 @@ class UploadNoteView(APIView):
             )
 
         except Exception as e:
-            import traceback
-
-            print("=" * 60)
-            print("UPLOAD ERROR")
             traceback.print_exc()
-            print("=" * 60)
 
             return Response(
                 {
@@ -154,7 +120,7 @@ class UploadNoteView(APIView):
 
 class NoteDetailView(APIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [FirebaseAuthenticated]
 
     def get(self, request, note_id):
 

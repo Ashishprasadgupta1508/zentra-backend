@@ -4,4 +4,4 @@ class FirebaseAuthenticated(BasePermission):
 
     def has_permission(self, request, view):
 
-        return True
+        return bool(getattr(request.user, "uid", None))
