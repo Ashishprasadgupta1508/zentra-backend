@@ -239,6 +239,40 @@ def unlock_next_task_after_pass(note, current_task):
     return next_task
 
 
+def unlock_next_task_after_completion(user, note, current_task):
+    next_task = unlock_next_task_after_pass(note, current_task)
+
+    if next_task and next_task.topic and next_task.topic.locked:
+        next_task.topic.locked = False
+        next_task.topic.save(update_fields=["locked"])
+
+    if next_task and next_task.topic:
+        Progress.objects.update_or_create(
+            topic=next_task.topic,
+            defaults={
+                "user": user,
+                "note": note,
+                "unlocked": True,
+                "lecture_completed": next_task.topic.lecture_completed,
+                "test_completed": next_task.topic.test_completed,
+            }
+        )
+
+    return next_task
+
+
+def unlock_next_task_for_completed_progress(user, note):
+    completed_task = Task.objects.filter(
+        note=note,
+        completed=True
+    ).order_by("-order", "-id").first()
+
+    if not completed_task:
+        return None
+
+    return unlock_next_task_after_completion(user, note, completed_task)
+
+
 def get_or_create_topic_task(note, topic, estimated_time=""):
     topic_ids = list(ordered_topics_for_note(note).values_list("id", flat=True))
     order = topic_ids.index(topic.id) + 1 if topic.id in topic_ids else topic.order
@@ -1032,6 +1066,7 @@ class NoteDetailView(APIView):
             note = Note.objects.get(id=note_id, user=user)
 
             ensure_progress_rows(user, note)
+            unlock_next_task_for_completed_progress(user, note)
             learning_progress = recalculate_learning_progress(user, note)
             modules_data = serialize_modules(note)
 
@@ -1123,6 +1158,7 @@ class CompleteTaskView(APIView):
             if task.topic:
                 lecture = get_or_create_topic_lecture(task.note, task.topic)
                 task, learning_progress, test_available = complete_lecture_for_user(user, lecture)
+                next_task = unlock_next_task_after_completion(user, task.note, task) if task else None
             else:
                 was_completed = task.completed
                 completed_at = task.completed_at or timezone.now()
@@ -1138,15 +1174,20 @@ class CompleteTaskView(APIView):
                     "status",
                     "locked",
                 ])
+                next_task = unlock_next_task_after_completion(user, task.note, task)
                 learning_progress = recalculate_learning_progress(user, task.note)
                 test_available = False
+
+            if task and task.topic:
+                learning_progress = recalculate_learning_progress(user, task.note)
 
             return Response({
                 "success": True,
                 "task": serialize_tasks([task])[0],
                 "lecture_completed": bool(task.topic and task.topic.lecture_completed),
                 "test_available": test_available,
-                "next_task_unlocked": False,
+                "next_task_unlocked": bool(next_task),
+                "next_task": serialize_tasks([next_task])[0] if next_task else None,
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1180,6 +1221,8 @@ class TaskListView(APIView):
         try:
             user = get_or_create_request_user(request.user)
             note = Note.objects.get(id=note_id, user=user)
+            sync_note_tasks(note)
+            unlock_next_task_for_completed_progress(user, note)
             tasks = Task.objects.filter(note=note).order_by("order", "id")
 
             return Response({
