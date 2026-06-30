@@ -16,6 +16,16 @@ urlpatterns = [
 
     path(
 
+        "upload",
+
+        UploadNoteView.as_view(),
+
+        name="upload-note-no-slash"
+
+    ),
+
+    path(
+
         "upload/",
 
         UploadNoteView.as_view(),

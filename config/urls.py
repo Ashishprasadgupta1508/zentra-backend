@@ -46,6 +46,8 @@ def home(request):
 urlpatterns = [
 
     path("", home),
+    path("api", home, name="api-health-no-slash"),
+    path("api/", home, name="api-health"),
 
     path("admin/", admin.site.urls),
 
