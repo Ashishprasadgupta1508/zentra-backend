@@ -41,19 +41,33 @@ def from_firebase_user(firebase_user):
 class FirebaseAuthentication(BaseAuthentication):
 
     def authenticate(self, request):
+        token = self.get_token(request)
 
+        if not token:
+            return None
+
+        return self.authenticate_token(token)
+
+    def get_token(self, request):
         auth_header = request.headers.get("Authorization")
 
         if not auth_header:
+            data = getattr(request, "data", {})
+            if hasattr(data, "get"):
+                return data.get("token") or data.get("access") or data.get("idToken")
             return None
 
         parts = auth_header.split()
 
+        if len(parts) == 1:
+            return parts[0]
+
         if len(parts) != 2 or parts[0].lower() != "bearer":
             raise AuthenticationFailed("Invalid Authorization header")
 
-        token = parts[1]
+        return parts[1]
 
+    def authenticate_token(self, token):
         firebase_error = None
 
         try:
