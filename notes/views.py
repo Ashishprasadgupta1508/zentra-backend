@@ -371,6 +371,74 @@ def build_recommendations(progress):
     return recommendations
 
 
+def latest_submissions_for_progress(progress):
+    submissions = TestSubmission.objects.filter(
+        user=progress.user,
+        test__note=progress.note
+    ).select_related("test", "test__topic").order_by("test_id", "-created_at")
+
+    latest_by_test = {}
+    for submission in submissions:
+        latest_by_test.setdefault(submission.test_id, submission)
+
+    return list(latest_by_test.values())
+
+
+def progress_level(accuracy):
+    if accuracy >= 90:
+        return "Excellent"
+    if accuracy >= 75:
+        return "Good"
+    if accuracy >= 50:
+        return "Needs Practice"
+    if accuracy > 0:
+        return "At Risk"
+    return "Not Started"
+
+
+def serialize_progress_card(progress):
+    latest_submissions = latest_submissions_for_progress(progress)
+    marks_scored = sum(submission.score for submission in latest_submissions)
+    marks_total = sum(submission.total for submission in latest_submissions)
+    tests_attempted = len(latest_submissions)
+    tests_passed = len([submission for submission in latest_submissions if submission.passed])
+    accuracy = round((marks_scored / marks_total) * 100, 2) if marks_total else 0
+
+    return {
+        "note_id": progress.note_id,
+        "overall_progress": progress.completion_percentage,
+        "accuracy": accuracy,
+        "average_score": progress.average_score,
+        "level": progress_level(accuracy),
+        "marks": {
+            "scored": marks_scored,
+            "total": marks_total,
+            "label": f"{marks_scored}/{marks_total}" if marks_total else "-",
+        },
+        "tasks": {
+            "completed": progress.completed_tasks,
+            "total": progress.total_tasks,
+        },
+        "lectures": {
+            "completed": progress.completed_lectures,
+            "total": progress.total_lectures,
+        },
+        "tests": {
+            "attempted": tests_attempted,
+            "passed": tests_passed,
+            "total": progress.total_tests,
+        },
+        "current": {
+            "topic": progress.current_topic,
+            "module": progress.current_module,
+        },
+        "weak_topics": progress.weak_topics,
+        "strong_topics": progress.strong_topics,
+        "recommendations": progress.recommendations,
+        "updated_at": progress.updated_at,
+    }
+
+
 def serialize_learning_progress(progress):
     return {
         "note_id": progress.note_id,
@@ -391,6 +459,7 @@ def serialize_learning_progress(progress):
         "completed_modules": progress.completed_modules,
         "completed_topics": progress.completed_topics,
         "recommendations": progress.recommendations,
+        "progress_card": serialize_progress_card(progress),
         "updated_at": progress.updated_at,
     }
 
@@ -722,6 +791,7 @@ def submit_test_for_user(user, test, answers):
         "next_topic_id": next_topic.id if next_topic else None,
         "next_task_id": next_task.id if next_task else None,
         "feedback": submission.feedback,
+        "progress_card": serialize_progress_card(learning_progress),
         "progress_summary": serialize_learning_progress(learning_progress),
     }
 
@@ -1113,6 +1183,8 @@ class NoteDetailView(APIView):
 
                 "tests": tests
                 ,
+                "progress_card": serialize_progress_card(learning_progress),
+
                 "progress_summary": serialize_learning_progress(learning_progress)
 
             })
@@ -1188,6 +1260,7 @@ class CompleteTaskView(APIView):
                 "test_available": test_available,
                 "next_task_unlocked": bool(next_task),
                 "next_task": serialize_tasks([next_task])[0] if next_task else None,
+                "progress_card": serialize_progress_card(learning_progress),
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1314,6 +1387,7 @@ class StartTaskView(APIView):
                 "success": True,
                 "task": serialize_tasks([task])[0],
                 "lecture": serialize_lecture_detail(lecture),
+                "progress_card": serialize_progress_card(learning_progress),
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1398,6 +1472,7 @@ class LectureView(APIView):
                 "topic_id": topic.id,
                 "task": serialize_tasks([task])[0] if task else None,
                 "lecture": lecture_data,
+                "progress_card": serialize_progress_card(learning_progress),
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1501,6 +1576,7 @@ class CompleteLectureView(APIView):
                 "lecture_completed": bool(lecture.topic and lecture.topic.lecture_completed),
                 "test_available": test_available,
                 "task": serialize_tasks([task])[0] if task else None,
+                "progress_card": serialize_progress_card(learning_progress),
                 "progress_summary": serialize_learning_progress(learning_progress),
             })
 
@@ -1664,17 +1740,19 @@ class ProgressView(APIView):
         try:
             user = get_or_create_request_user(request.user)
             summaries = []
+            progress_cards = []
 
             for note in Note.objects.filter(user=user):
                 ensure_progress_rows(user, note)
-                summaries.append(serialize_learning_progress(
-                    recalculate_learning_progress(user, note)
-                ))
+                progress = recalculate_learning_progress(user, note)
+                summaries.append(serialize_learning_progress(progress))
+                progress_cards.append(serialize_progress_card(progress))
 
             return Response({
                 "success": True,
                 "progress": serialize_progress(user),
                 "summaries": summaries,
+                "progress_cards": progress_cards,
             })
 
         except Exception as e:
@@ -1749,6 +1827,7 @@ class FinalReportView(APIView):
                     }
                     for submission in latest_submissions
                 ],
+                "progress_card": serialize_progress_card(progress),
                 "progress_summary": serialize_learning_progress(progress),
             })
 
