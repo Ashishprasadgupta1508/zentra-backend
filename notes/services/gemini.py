@@ -1,14 +1,13 @@
-from google import genai
+import google.generativeai as genai
 from django.conf import settings
 
-client = genai.Client(api_key=settings.GEMINI_API_KEY)
+genai.configure(api_key=settings.GEMINI_API_KEY)
+
+model = genai.GenerativeModel("gemini-2.5-flash")
 
 def ask_gemini(prompt):
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
 
         print(response)
 
