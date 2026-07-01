@@ -6,6 +6,9 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import UntypedToken
 
 from users.models import User
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticatedUser:
@@ -44,8 +47,10 @@ class FirebaseAuthentication(BaseAuthentication):
         token = self.get_token(request)
 
         if not token:
+            logger.debug("No authentication token found in request")
             return None
 
+        logger.debug(f"Token found, attempting to authenticate: {token[:20]}...")
         return self.authenticate_token(token)
 
     def get_token(self, request):
@@ -54,18 +59,23 @@ class FirebaseAuthentication(BaseAuthentication):
         if not auth_header:
             data = getattr(request, "data", {})
             if hasattr(data, "get"):
-                return data.get("token") or data.get("access") or data.get("idToken")
+                token = data.get("token") or data.get("access") or data.get("idToken")
+                if token and isinstance(token, str):
+                    token = token.strip()
+                return token if token else None
             return None
 
         parts = auth_header.split()
 
         if len(parts) == 1:
-            return parts[0]
+            token = parts[0].strip()
+            return token if token else None
 
         if len(parts) != 2 or parts[0].lower() != "bearer":
-            raise AuthenticationFailed("Invalid Authorization header")
+            raise AuthenticationFailed("Invalid Authorization header format. Expected: 'Bearer <token>'")
 
-        return parts[1]
+        token = parts[1].strip()
+        return token if token else None
 
     def authenticate_token(self, token):
         firebase_error = None
@@ -76,7 +86,7 @@ class FirebaseAuthentication(BaseAuthentication):
             return (from_firebase_user(firebase_user), None)
 
         except Exception as e:
-            firebase_error = e
+            firebase_error = str(e)
 
         try:
             validated_token = UntypedToken(token)
@@ -91,10 +101,14 @@ class FirebaseAuthentication(BaseAuthentication):
         except User.DoesNotExist:
             raise AuthenticationFailed("User not found")
 
-        except (InvalidToken, TokenError, AuthenticationFailed) as jwt_error:
-            raise AuthenticationFailed(
-                f"Invalid Firebase ID token or access token: {jwt_error or firebase_error}"
-            )
+        except (InvalidToken, TokenError) as jwt_error:
+            error_msg = f"Invalid token: {jwt_error}"
+            if firebase_error:
+                error_msg += f" (Firebase error: {firebase_error})"
+            raise AuthenticationFailed(error_msg)
+        
+        except AuthenticationFailed:
+            raise
 
     def authenticate_header(self, request):
         return "Bearer"
