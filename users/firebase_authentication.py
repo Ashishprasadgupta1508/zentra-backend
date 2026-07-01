@@ -83,10 +83,12 @@ class FirebaseAuthentication(BaseAuthentication):
         try:
             decoded = auth.verify_id_token(token)
             firebase_user = auth.get_user(decoded["uid"])
+            logger.info(f"Firebase authentication successful for user {decoded['uid']}")
             return (from_firebase_user(firebase_user), None)
 
         except Exception as e:
             firebase_error = str(e)
+            logger.debug(f"Firebase authentication failed: {firebase_error}")
 
         try:
             validated_token = UntypedToken(token)
@@ -96,6 +98,7 @@ class FirebaseAuthentication(BaseAuthentication):
                 raise AuthenticationFailed("JWT token does not contain a user_id")
 
             user = User.objects.get(id=user_id, is_active=True)
+            logger.info(f"JWT authentication successful for user {user_id}")
             return (from_local_user(user), validated_token)
 
         except User.DoesNotExist:
@@ -105,6 +108,7 @@ class FirebaseAuthentication(BaseAuthentication):
             error_msg = f"Invalid token: {jwt_error}"
             if firebase_error:
                 error_msg += f" (Firebase error: {firebase_error})"
+            logger.warning(f"Token authentication failed: {error_msg}")
             raise AuthenticationFailed(error_msg)
         
         except AuthenticationFailed:
